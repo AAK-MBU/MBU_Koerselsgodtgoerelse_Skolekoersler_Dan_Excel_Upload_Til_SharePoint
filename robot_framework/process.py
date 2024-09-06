@@ -21,14 +21,18 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
     if not os.path.exists(temp_path):
         os.makedirs(temp_path)
 
-    export_egenbefordring_from_hub(conn_str, temp_path)
+    export_egenbefordring_from_hub(conn_str, temp_path, 1)
 
 
-def get_current_week_dates():
+def get_week_dates(number_of_weeks: int = None):
     """
     Returns the start and end dates of the current week.
 
     The week is considered to start on Monday at 00:00:00 and end on Sunday at 23:59:59.
+    If number_of_weeks is provided, it adjusts the current date by subtracting the specified number of weeks.
+
+    Args:
+        number_of_weeks (int, optional): Number of weeks to subtract from the current date.
 
     Returns:
         tuple: A tuple containing two datetime objects:
@@ -36,14 +40,15 @@ def get_current_week_dates():
                - end_of_week: the end of the current week (Sunday)
     """
     locale.setlocale(locale.LC_TIME, 'da_DK.UTF-8')
-    today = datetime.now()
+    today = datetime.now() - timedelta(weeks=number_of_weeks) if number_of_weeks else datetime.now()
     start_of_week = today - timedelta(days=today.weekday())
     start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
     end_of_week = start_of_week + timedelta(days=6, seconds=86399)  # 23:59:59 on Sunday
+
     return start_of_week, end_of_week
 
 
-def export_egenbefordring_from_hub(connection_string: str, temp_path: str):
+def export_egenbefordring_from_hub(connection_string: str, temp_path: str, number_of_weeks: int = None):
     """
     Retrieves 'Egenbefordring' data for the current week from the database and exports it to an Excel file.
 
@@ -57,10 +62,10 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str):
         - Normalizes and formats the JSON data retrieved.
         - Exports the normalized data to an Excel file with the current week's details.
     """
-    current_week_start, current_week_end = get_current_week_dates()
+    current_week_start, current_week_end = get_week_dates(number_of_weeks=number_of_weeks)
     start_date = current_week_start.strftime('%Y-%m-%d %H:%M:%S')
     end_date = current_week_end.strftime('%Y-%m-%d %H:%M:%S')
-    current_week_number = datetime.date(datetime.now()).isocalendar()[1]
+    current_week_number = datetime.date(datetime.now() - timedelta(weeks=number_of_weeks) if number_of_weeks else datetime.now()).isocalendar()[1]
     date_filename = f"{current_week_number}_{current_week_start.strftime('%d%m%Y')}_{current_week_end.strftime('%d%m%Y')}"
     xl_sheetname = f"{current_week_number}_{datetime.now().year}"
 
