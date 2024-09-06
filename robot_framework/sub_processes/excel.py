@@ -1,9 +1,8 @@
 """
-This module provides functionalities to export pandas DataFrames to an Excel file. 
-It uses the openpyxl library to either append data to an existing sheet or create 
+This module provides functionalities to export pandas DataFrames to an Excel file.
+It uses the openpyxl library to either append data to an existing sheet or create
 a new sheet if the file does not exist.
 """
-
 import os
 import pandas as pd
 import openpyxl
