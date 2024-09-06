@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timedelta
 import locale
 import pandas as pd
-from sqlalchemy import create_engine, text
+import pyodbc
 from OpenOrchestrator.orchestrator_connection.connection import OrchestratorConnection
 from robot_framework.sub_processes.excel import export_to_excel
 
@@ -64,7 +64,6 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str):
     date_filename = f"{current_week_number}_{current_week_start.strftime('%d%m%Y')}_{current_week_end.strftime('%d%m%Y')}"
     xl_sheetname = f"{current_week_number}_{datetime.now().year}"
 
-    engine = create_engine(connection_string)
     add_columns = {
         'aendret_beloeb_i_alt': [],
         'godkendt': [],
@@ -76,27 +75,39 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str):
     remove_columns = ['koerselsliste_tomme_felter_tjek_']
     move_columns_to_last = ['test', 'attachments', 'uuid']
 
-    with engine.begin() as conn:
-        query = text(f"""SELECT  reference,
-                                CASE
-                                    WHEN JSON_VALUE(data, '$.completed') IS NOT NULL THEN JSON_VALUE(data, '$.completed')
-                                    ELSE JSON_VALUE(data, '$.entity.completed[0].value')
-                                END as [modtagelsesdato],
-                                data
-                        FROM    rpa.Hub_GO_Egenbefordring_ifm_til_skolekoer
-                        WHERE   (JSON_Value(data, '$.completed') >= '{start_date}' AND JSON_Value(data, '$.completed') <= '{end_date}')
-                                OR (JSON_Value(data, '$.entity.completed[0].value') >= '{start_date}' AND JSON_Value(data, '$.entity.completed[0].value') <= '{end_date}')
-                     """)
-        result = conn.execute(query)
-        result_as_dict = result.mappings().all()
+    conn = pyodbc.connect(connection_string)
+    cursor = conn.cursor()
 
-        for obj in result_as_dict:
-            uuid = obj['reference']
-            received_date = obj['modtagelsesdato']
-            datetime_obj = datetime.fromisoformat(received_date)
-            formatted_datetime_str = datetime_obj.strftime("%Y-%m-%d %H:%M:%S")
-            json_data = json.loads(obj['data'])
-            json_data_normalized = pd.json_normalize(json_data['data'], sep='_', max_level=0)
-            json_data_normalized['modtagelsesdato'] = formatted_datetime_str
-            json_data_normalized['uuid'] = uuid
-            export_to_excel(rf"{temp_path}\Egenbefordring_{date_filename}.xlsx", f"{xl_sheetname}", json_data_normalized, add_columns, remove_columns, move_columns_to_last)
+    query = f"""
+    SELECT  reference,
+            CASE
+                WHEN JSON_VALUE(data, '$.completed') IS NOT NULL THEN JSON_VALUE(data, '$.completed')
+                ELSE JSON_VALUE(data, '$.entity.completed[0].value')
+            END as [modtagelsesdato],
+            data
+    FROM    rpa.Hub_GO_Egenbefordring_ifm_til_skolekoer
+    WHERE   (JSON_Value(data, '$.completed') >= '{start_date}' AND JSON_Value(data, '$.completed') <= '{end_date}')
+            OR (JSON_Value(data, '$.entity.completed[0].value') >= '{start_date}' AND JSON_Value(data, '$.entity.completed[0].value') <= '{end_date}')
+    """
+
+    cursor.execute(query)
+    result = cursor.fetchall()
+
+    for row in result:
+        uuid = row.reference
+        received_date = row.modtagelsesdato
+        datetime_obj = datetime.fromisoformat(received_date)
+        formatted_datetime_str = datetime_obj.strftime("%Y-%m-%d %H:%M:%S")
+        json_data = json.loads(row.data)
+        json_data_normalized = pd.json_normalize(json_data['data'], sep='_', max_level=0)
+        json_data_normalized['modtagelsesdato'] = formatted_datetime_str
+        json_data_normalized['uuid'] = uuid
+        export_to_excel(rf"{temp_path}\Egenbefordring_{date_filename}.xlsx", f"{xl_sheetname}", json_data_normalized, add_columns, remove_columns, move_columns_to_last)
+
+    cursor.close()
+    conn.close()
+
+
+if __name__ == "__main__":
+    oc = OrchestratorConnection.create_connection_from_args()
+    process(oc)
