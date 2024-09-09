@@ -6,6 +6,8 @@ import locale
 import pandas as pd
 import pyodbc
 from OpenOrchestrator.orchestrator_connection.connection import OrchestratorConnection
+from office365.runtime.auth.user_credential import UserCredential
+from office365.sharepoint.client_context import ClientContext
 from robot_framework.sub_processes.excel import export_to_excel
 
 
@@ -18,10 +20,16 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
     temp_path = oc_args_json['tempPath']
     conn_str = orchestrator_connection.get_constant('DbConnectionString').value
 
+    service_konto_credential = orchestrator_connection.get_credential("SvcRpaMBU002")
+    username = service_konto_credential.username
+    password = service_konto_credential.password
+
     if not os.path.exists(temp_path):
         os.makedirs(temp_path)
 
-    export_egenbefordring_from_hub(conn_str, temp_path, 1)
+    file_path = export_egenbefordring_from_hub(conn_str, temp_path, 1)
+
+    upload_file_to_sharepoint(username, password, file_path)
 
 
 def get_week_dates(number_of_weeks: int = None):
@@ -112,7 +120,20 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str, numbe
     cursor.close()
     conn.close()
 
+    return rf"{temp_path}\Egenbefordring_{date_filename}.xlsx"
 
-if __name__ == "__main__":
-    oc = OrchestratorConnection.create_connection_from_args()
-    process(oc)
+
+def upload_file_to_sharepoint(username: str, password: str, file_path: str) -> None:
+    """Upload a file to SharePoint."""
+    sharepoint_site_url = "https://aarhuskommune.sharepoint.com/teams/MBU-RPA-Egenbefordring"
+    document_library = "Delte dokumenter/General"
+    file_name = os.path.basename(file_path)
+    ctx = ClientContext(sharepoint_site_url).with_credentials(UserCredential(username, password))
+
+    target_folder_url = f"/teams/MBU-RPA-Egenbefordring/{document_library}"
+    target_folder = ctx.web.get_folder_by_server_relative_url(target_folder_url)
+
+    with open(file_path, "rb") as file_content:
+        target_folder.upload_file(file_name, file_content).execute_query()
+
+    print(f"File '{file_name}' has been uploaded successfully to SharePoint.")
