@@ -26,5 +26,6 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pylint",
-  "flake8"
+  "flake8",
+  "Office365-REST-Python-Client"
 ]
