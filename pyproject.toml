@@ -20,7 +20,8 @@ dependencies = [
     "Pillow == 9.5.0",
     "sqlalchemy >= 2.0.34",
     "openpyxl >= 3.1.5",
-    "pandas >= 2.2.2"
+    "pandas >= 2.2.2",
+    "mbu-dev-shared-components >= 0.0.50",
 ]
 
 [project.optional-dependencies]

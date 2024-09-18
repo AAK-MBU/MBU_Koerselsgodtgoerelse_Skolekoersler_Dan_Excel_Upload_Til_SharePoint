@@ -6,7 +6,9 @@ import locale
 import pandas as pd
 import pyodbc
 from OpenOrchestrator.orchestrator_connection.connection import OrchestratorConnection
+from mbu_dev_shared_components.msoffice365.sharepoint_api.files import Sharepoint
 from robot_framework.sub_processes.excel import export_to_excel
+from robot_framework import config
 
 
 def process(orchestrator_connection: OrchestratorConnection) -> None:
@@ -14,6 +16,7 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
     orchestrator_connection.log_trace("Running process.")
 
     oc_args_json = json.loads(orchestrator_connection.process_arguments)
+    creds = orchestrator_connection.get_credential(config.USERNAME)
 
     temp_path = oc_args_json['tempPath']
     conn_str = orchestrator_connection.get_constant('DbConnectionString').value
@@ -21,7 +24,9 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
     if not os.path.exists(temp_path):
         os.makedirs(temp_path)
 
-    export_egenbefordring_from_hub(conn_str, temp_path, 1)
+    file = export_egenbefordring_from_hub(conn_str, temp_path)
+
+    upload_file_to_sharepoint(config.FOLDER_NAME, file, creds)
 
 
 def get_week_dates(number_of_weeks: int = None):
@@ -98,6 +103,8 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str, numbe
     cursor.execute(query)
     result = cursor.fetchall()
 
+    file_name = rf"{temp_path}\Egenbefordring_{date_filename}.xlsx"
+
     for row in result:
         uuid = row.reference
         received_date = row.modtagelsesdato
@@ -107,10 +114,38 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str, numbe
         json_data_normalized = pd.json_normalize(json_data['data'], sep='_', max_level=0)
         json_data_normalized['modtagelsesdato'] = formatted_datetime_str
         json_data_normalized['uuid'] = uuid
-        export_to_excel(rf"{temp_path}\Egenbefordring_{date_filename}.xlsx", f"{xl_sheetname}", json_data_normalized, add_columns, remove_columns, move_columns_to_last)
+        export_to_excel(file_name, f"{xl_sheetname}", json_data_normalized, add_columns, remove_columns, move_columns_to_last)
 
     cursor.close()
     conn.close()
+
+    return file_name
+
+
+def upload_file_to_sharepoint(folder_name: str, file: str, credentials):
+    """
+    Uploads a file to a specified folder within a SharePoint site.
+
+    Args:
+        folder_name (str): The name of the folder within the SharePoint
+                            document library where the file will be uploaded.
+        file (str): The local path to the file that needs to be uploaded.
+        credentials: An object containing 'username' and 'password' attributes
+                        for SharePoint authentication.
+
+    Returns:
+        None
+    """
+    sharepoint_details = {
+        "username": f"{credentials.username}",
+        "password": f"{credentials.password}",
+        "site_url": "https://aarhuskommune.sharepoint.com",
+        "site_name": f"{config.SITE_NAME}",
+        "document_library": "Delte dokumenter"
+    }
+    sp = Sharepoint(**sharepoint_details)
+
+    sp.upload_file(folder_name, file)
 
 
 if __name__ == "__main__":
