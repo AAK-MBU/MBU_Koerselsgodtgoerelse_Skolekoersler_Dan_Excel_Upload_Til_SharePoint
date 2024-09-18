@@ -48,7 +48,7 @@ def get_week_dates(number_of_weeks: int = None):
     today = datetime.now() - timedelta(weeks=number_of_weeks) if number_of_weeks else datetime.now()
     start_of_week = today - timedelta(days=today.weekday())
     start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
-    end_of_week = start_of_week + timedelta(days=6, seconds=86399)  # 23:59:59 on Sunday
+    end_of_week = start_of_week + timedelta(days=6, seconds=86399)
 
     return start_of_week, end_of_week
 
