@@ -21,8 +21,6 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
     conn_str = orchestrator_connection.get_constant('DbConnectionString').value
 
     service_konto_credential = orchestrator_connection.get_credential("SvcRpaMBU002")
-    username = service_konto_credential.username
-    password = service_konto_credential.password
 
     if not os.path.exists(temp_path):
         os.makedirs(temp_path)
