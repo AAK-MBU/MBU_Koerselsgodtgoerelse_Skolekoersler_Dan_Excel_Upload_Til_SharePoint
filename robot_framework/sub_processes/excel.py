@@ -103,5 +103,5 @@ def create_new_excel(filepath, sheetname, dataframe_data):
         sheetname (str): The name of the sheet to create.
         dataframe_data (pd.DataFrame): The pandas DataFrame containing the data to export.
     """
-    with pd.ExcelWriter(path=filepath, engine='openpyxl') as writer:
+    with pd.ExcelWriter(path=filepath, engine='openpyxl') as writer:  # pylint: disable=abstract-class-instantiated
         dataframe_data.to_excel(writer, index=False, sheet_name=sheetname)
