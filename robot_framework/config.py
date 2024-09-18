@@ -25,3 +25,6 @@ QUEUE_NAME = None
 MAX_TASK_COUNT = 100
 
 # ----------------------
+FOLDER_NAME = "General"
+USERNAME = "SvcRpaMBU002"
+SITE_NAME = "MBU-RPA-Egenbefordring"
