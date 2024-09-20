@@ -1,6 +1,7 @@
 """This module contains the main process of the robot."""
 import os
 import json
+import shutil
 from datetime import datetime, timedelta
 import locale
 import pandas as pd
@@ -21,12 +22,18 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
     temp_path = oc_args_json['tempPath']
     conn_str = orchestrator_connection.get_constant('DbConnectionString').value
 
+    orchestrator_connection.log_trace("Create tmp-folder.")
     if not os.path.exists(temp_path):
         os.makedirs(temp_path)
 
+    orchestrator_connection.log_trace("Export data from hub in SQL database.")
     file = export_egenbefordring_from_hub(conn_str, temp_path)
 
+    orchestrator_connection.log_trace(f"Upload file to sharepoint: {file}")
     upload_file_to_sharepoint(config.FOLDER_NAME, file, creds)
+
+    orchestrator_connection.log_trace("Remove tmp-folder.")
+    shutil.rmtree(temp_path)
 
 
 def get_week_dates(number_of_weeks: int = None):
