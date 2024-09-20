@@ -21,7 +21,7 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
 
     temp_path = oc_args_json['tempPath']
     conn_str = orchestrator_connection.get_constant('DbConnectionString').value
-    
+
     orchestrator_connection.log_trace("Create tmp-folder.")
     if not os.path.exists(temp_path):
         os.makedirs(temp_path)
