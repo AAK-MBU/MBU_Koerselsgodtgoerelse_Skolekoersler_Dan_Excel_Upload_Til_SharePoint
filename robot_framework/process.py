@@ -3,6 +3,7 @@ import os
 import json
 import shutil
 from datetime import datetime, timedelta
+import time
 import locale
 import pandas as pd
 import pyodbc
@@ -16,24 +17,23 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
     """Do the primary process of the robot."""
     orchestrator_connection.log_trace("Running process.")
 
-    oc_args_json = json.loads(orchestrator_connection.process_arguments)
     creds = orchestrator_connection.get_credential(config.USERNAME)
-
-    temp_path = oc_args_json['tempPath']
     conn_str = orchestrator_connection.get_constant('DbConnectionString').value
 
     orchestrator_connection.log_trace("Create tmp-folder.")
-    if not os.path.exists(temp_path):
-        os.makedirs(temp_path)
+    if not os.path.exists(config.TMP_PATH):
+        os.makedirs(config.TMP_PATH)
+        while not os.path.exists(config.TMP_PATH):
+            time.sleep(1)
 
     orchestrator_connection.log_trace("Export data from hub in SQL database.")
-    file = export_egenbefordring_from_hub(conn_str, temp_path)
+    file = export_egenbefordring_from_hub(conn_str, config.TMP_PATH, number_of_weeks=1)
 
     orchestrator_connection.log_trace(f"Upload file to sharepoint: {file}")
     upload_file_to_sharepoint(config.FOLDER_NAME, file, creds)
 
     orchestrator_connection.log_trace("Remove tmp-folder.")
-    shutil.rmtree(temp_path)
+    shutil.rmtree(config.TMP_PATH)
 
 
 def get_week_dates(number_of_weeks: int = None):
@@ -151,7 +151,6 @@ def upload_file_to_sharepoint(folder_name: str, file: str, credentials):
         "document_library": "Delte dokumenter"
     }
     sp = Sharepoint(**sharepoint_details)
-
     sp.upload_file(folder_name, file)
 
 
