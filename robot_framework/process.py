@@ -3,6 +3,7 @@ import os
 import json
 import shutil
 from datetime import datetime, timedelta
+import time
 import locale
 import pandas as pd
 import pyodbc
@@ -22,9 +23,11 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
     orchestrator_connection.log_trace("Create tmp-folder.")
     if not os.path.exists(config.TMP_PATH):
         os.makedirs(config.TMP_PATH)
+        while not os.path.exists(config.TMP_PATH):
+            time.sleep(1)
 
     orchestrator_connection.log_trace("Export data from hub in SQL database.")
-    file = export_egenbefordring_from_hub(conn_str, config.TMP_PATH)
+    file = export_egenbefordring_from_hub(conn_str, config.TMP_PATH, number_of_weeks=1)
 
     orchestrator_connection.log_trace(f"Upload file to sharepoint: {file}")
     upload_file_to_sharepoint(config.FOLDER_NAME, file, creds)
