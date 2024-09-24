@@ -103,10 +103,16 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str, numbe
             END as [modtagelsesdato],
             data
     FROM    rpa.Hub_GO_Egenbefordring_ifm_til_skolekoer
-    WHERE   (JSON_Value(data, '$.completed') >= '{start_date}' AND JSON_Value(data, '$.completed') <= '{end_date}')
-            OR (JSON_Value(data, '$.entity.completed[0].value') >= '{start_date}' AND JSON_Value(data, '$.entity.completed[0].value') <= '{end_date}')
+    WHERE   (
+                TRY_CAST(JSON_Value(data, '$.completed') AS DATETIMEOFFSET) >= '{start_date}'
+                AND TRY_CAST(JSON_Value(data, '$.completed') AS DATETIMEOFFSET) <= '{end_date}'
+            )
+            OR (
+                TRY_CAST(JSON_Value(data, '$.entity.completed[0].value') AS DATETIMEOFFSET) >= '{start_date}'
+                AND TRY_CAST(JSON_Value(data, '$.entity.completed[0].value') AS DATETIMEOFFSET) <= '{end_date}'
+            )
     """
-
+    print(query)
     cursor.execute(query)
     result = cursor.fetchall()
 
