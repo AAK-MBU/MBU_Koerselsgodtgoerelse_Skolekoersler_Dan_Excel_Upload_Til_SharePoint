@@ -90,27 +90,28 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str, numbe
     }
 
     remove_columns = ['koerselsliste_tomme_felter_tjek_']
-    move_columns_to_last = ['test', 'attachments', 'uuid']
+    move_columns_to_last = ['test', 'attachments', 'form_id']
 
     conn = pyodbc.connect(connection_string)
     cursor = conn.cursor()
 
     query = f"""
-    SELECT  reference,
+    SELECT  form_id,
             CASE
-                WHEN JSON_VALUE(data, '$.completed') IS NOT NULL THEN JSON_VALUE(data, '$.completed')
-                ELSE JSON_VALUE(data, '$.entity.completed[0].value')
+                WHEN JSON_VALUE(form_data, '$.completed') IS NOT NULL THEN JSON_VALUE(form_data, '$.completed')
+                ELSE JSON_VALUE(form_data, '$.entity.completed[0].value')
             END as [modtagelsesdato],
-            data
-    FROM    rpa.Hub_GO_Egenbefordring_ifm_til_skolekoer
+            form_data
+    FROM    [RPA].[journalizing].[view_Journalizing]
     WHERE   (
-                TRY_CAST(JSON_Value(data, '$.completed') AS DATETIMEOFFSET) >= '{start_date}'
-                AND TRY_CAST(JSON_Value(data, '$.completed') AS DATETIMEOFFSET) <= '{end_date}'
+                TRY_CAST(JSON_Value(form_data, '$.completed') AS DATETIMEOFFSET) >= '{start_date}'
+                AND TRY_CAST(JSON_Value(form_data, '$.completed') AS DATETIMEOFFSET) <= '{end_date}'
             )
             OR (
-                TRY_CAST(JSON_Value(data, '$.entity.completed[0].value') AS DATETIMEOFFSET) >= '{start_date}'
-                AND TRY_CAST(JSON_Value(data, '$.entity.completed[0].value') AS DATETIMEOFFSET) <= '{end_date}'
+                TRY_CAST(JSON_Value(form_data, '$.entity.completed[0].value') AS DATETIMEOFFSET) >= '{start_date}'
+                AND TRY_CAST(JSON_Value(form_data, '$.entity.completed[0].value') AS DATETIMEOFFSET) <= '{end_date}'
             )
+            AND form_type = 'egenbefordring_ifm_til_skolekoer'
     """
     print(query)
     cursor.execute(query)
@@ -119,14 +120,14 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str, numbe
     file_name = rf"{temp_path}\Egenbefordring_{date_filename}.xlsx"
 
     for row in result:
-        uuid = row.reference
+        form_id = row.form_id
         received_date = row.modtagelsesdato
         datetime_obj = datetime.fromisoformat(received_date)
         formatted_datetime_str = datetime_obj.strftime("%Y-%m-%d %H:%M:%S")
-        json_data = json.loads(row.data)
+        json_data = json.loads(row.form_data)
         json_data_normalized = pd.json_normalize(json_data['data'], sep='_', max_level=0)
         json_data_normalized['modtagelsesdato'] = formatted_datetime_str
-        json_data_normalized['uuid'] = uuid
+        json_data_normalized['form_id'] = form_id
         export_to_excel(file_name, f"{xl_sheetname}", json_data_normalized, add_columns, remove_columns, move_columns_to_last)
 
     cursor.close()
@@ -158,8 +159,3 @@ def upload_file_to_sharepoint(folder_name: str, file: str, credentials):
     }
     sp = Sharepoint(**sharepoint_details)
     sp.upload_file(folder_name, file)
-
-
-if __name__ == "__main__":
-    oc = OrchestratorConnection.create_connection_from_args()
-    process(oc)
