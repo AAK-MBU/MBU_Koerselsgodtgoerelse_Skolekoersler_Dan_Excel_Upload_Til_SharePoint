@@ -90,7 +90,7 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str, numbe
     }
 
     remove_columns = ['koerselsliste_tomme_felter_tjek_']
-    move_columns_to_last = ['test', 'attachments', 'form_id']
+    move_columns_to_last = ['test', 'attachments', 'uuid']
 
     conn = pyodbc.connect(connection_string)
     cursor = conn.cursor()
@@ -127,7 +127,7 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str, numbe
         json_data = json.loads(row.form_data)
         json_data_normalized = pd.json_normalize(json_data['data'], sep='_', max_level=0)
         json_data_normalized['modtagelsesdato'] = formatted_datetime_str
-        json_data_normalized['form_id'] = form_id
+        json_data_normalized['uuid'] = form_id
         export_to_excel(file_name, f"{xl_sheetname}", json_data_normalized, add_columns, remove_columns, move_columns_to_last)
 
     cursor.close()
