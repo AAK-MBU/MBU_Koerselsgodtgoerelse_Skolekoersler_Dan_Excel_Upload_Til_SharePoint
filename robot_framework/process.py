@@ -86,7 +86,8 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str, numbe
         'godkendt': [],
         'godkendt_af': [],
         'behandlet_ok': [],
-        'behandlet_fejl': []
+        'behandlet_fejl': [],
+        'evt_kommentar': [],
     }
 
     remove_columns = ['koerselsliste_tomme_felter_tjek_']
