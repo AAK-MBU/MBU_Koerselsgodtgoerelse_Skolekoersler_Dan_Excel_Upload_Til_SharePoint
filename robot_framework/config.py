@@ -26,6 +26,5 @@ MAX_TASK_COUNT = 100
 
 # ----------------------
 FOLDER_NAME = "General"
-USERNAME = "SvcRpaMBU002"
 SITE_NAME = "MBU-RPA-Egenbefordring"
 TMP_PATH = "C:\\tmp\\Egen_befordring"

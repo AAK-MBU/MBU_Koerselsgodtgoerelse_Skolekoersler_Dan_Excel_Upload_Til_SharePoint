@@ -1,24 +1,26 @@
 """This module contains the main process of the robot."""
-import os
+
 import json
-import shutil
-from datetime import datetime, timedelta
-import time
 import locale
+import os
+import shutil
+import time
+from datetime import datetime, timedelta
+
 import pandas as pd
 import pyodbc
+from mbu_msoffice_integration.sharepoint_class import Sharepoint
 from OpenOrchestrator.orchestrator_connection.connection import OrchestratorConnection
-from mbu_dev_shared_components.msoffice365.sharepoint_api.files import Sharepoint
-from robot_framework.sub_processes.excel import export_to_excel
+
 from robot_framework import config
+from robot_framework.sub_processes.excel import export_to_excel
 
 
 def process(orchestrator_connection: OrchestratorConnection) -> None:
     """Do the primary process of the robot."""
     orchestrator_connection.log_trace("Running process.")
 
-    creds = orchestrator_connection.get_credential(config.USERNAME)
-    conn_str = orchestrator_connection.get_constant('DbConnectionString').value
+    conn_str = orchestrator_connection.get_constant("DbConnectionString").value
 
     orchestrator_connection.log_trace("Create tmp-folder.")
     if not os.path.exists(config.TMP_PATH):
@@ -30,7 +32,7 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
     file = export_egenbefordring_from_hub(conn_str, config.TMP_PATH, number_of_weeks=1)
 
     orchestrator_connection.log_trace(f"Upload file to sharepoint: {file}")
-    upload_file_to_sharepoint(config.FOLDER_NAME, file, creds)
+    upload_file_to_sharepoint(config.FOLDER_NAME, file)
 
     orchestrator_connection.log_trace("Remove tmp-folder.")
     shutil.rmtree(config.TMP_PATH)
@@ -51,8 +53,12 @@ def get_week_dates(number_of_weeks: int = None):
                - start_of_week: the start of the current week (Monday)
                - end_of_week: the end of the current week (Sunday)
     """
-    locale.setlocale(locale.LC_TIME, 'da_DK.UTF-8')
-    today = datetime.now() - timedelta(weeks=number_of_weeks) if number_of_weeks else datetime.now()
+    locale.setlocale(locale.LC_TIME, "da_DK.UTF-8")
+    today = (
+        datetime.now() - timedelta(weeks=number_of_weeks)
+        if number_of_weeks
+        else datetime.now()
+    )
     start_of_week = today - timedelta(days=today.weekday())
     start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
     end_of_week = start_of_week + timedelta(days=6, seconds=86399)
@@ -60,7 +66,9 @@ def get_week_dates(number_of_weeks: int = None):
     return start_of_week, end_of_week
 
 
-def export_egenbefordring_from_hub(connection_string: str, temp_path: str, number_of_weeks: int = None):
+def export_egenbefordring_from_hub(
+    connection_string: str, temp_path: str, number_of_weeks: int = None
+):
     """
     Retrieves 'Egenbefordring' data for the current week from the database and exports it to an Excel file.
 
@@ -74,24 +82,30 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str, numbe
         - Normalizes and formats the JSON data retrieved.
         - Exports the normalized data to an Excel file with the current week's details.
     """
-    current_week_start, current_week_end = get_week_dates(number_of_weeks=number_of_weeks)
-    start_date = current_week_start.strftime('%Y-%m-%d %H:%M:%S')
-    end_date = current_week_end.strftime('%Y-%m-%d %H:%M:%S')
-    current_week_number = datetime.date(datetime.now() - timedelta(weeks=number_of_weeks) if number_of_weeks else datetime.now()).isocalendar()[1]
+    current_week_start, current_week_end = get_week_dates(
+        number_of_weeks=number_of_weeks
+    )
+    start_date = current_week_start.strftime("%Y-%m-%d %H:%M:%S")
+    end_date = current_week_end.strftime("%Y-%m-%d %H:%M:%S")
+    current_week_number = datetime.date(
+        datetime.now() - timedelta(weeks=number_of_weeks)
+        if number_of_weeks
+        else datetime.now()
+    ).isocalendar()[1]
     date_filename = f"{current_week_number}_{current_week_start.strftime('%d%m%Y')}_{current_week_end.strftime('%d%m%Y')}"
     xl_sheetname = f"{current_week_number}_{datetime.now().year}"
 
     add_columns = {
-        'aendret_beloeb_i_alt': [],
-        'godkendt': [],
-        'godkendt_af': [],
-        'behandlet_ok': [],
-        'behandlet_fejl': [],
-        'evt_kommentar': [],
+        "aendret_beloeb_i_alt": [],
+        "godkendt": [],
+        "godkendt_af": [],
+        "behandlet_ok": [],
+        "behandlet_fejl": [],
+        "evt_kommentar": [],
     }
 
-    remove_columns = ['koerselsliste_tomme_felter_tjek_']
-    move_columns_to_last = ['test', 'attachments', 'uuid']
+    remove_columns = ["koerselsliste_tomme_felter_tjek_"]
+    move_columns_to_last = ["test", "attachments", "uuid"]
 
     conn = pyodbc.connect(connection_string)
     cursor = conn.cursor()
@@ -126,10 +140,19 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str, numbe
         datetime_obj = datetime.fromisoformat(received_date)
         formatted_datetime_str = datetime_obj.strftime("%Y-%m-%d %H:%M:%S")
         json_data = json.loads(row.form_data)
-        json_data_normalized = pd.json_normalize(json_data['data'], sep='_', max_level=0)
-        json_data_normalized['modtagelsesdato'] = formatted_datetime_str
-        json_data_normalized['uuid'] = form_id
-        export_to_excel(file_name, f"{xl_sheetname}", json_data_normalized, add_columns, remove_columns, move_columns_to_last)
+        json_data_normalized = pd.json_normalize(
+            json_data["data"], sep="_", max_level=0
+        )
+        json_data_normalized["modtagelsesdato"] = formatted_datetime_str
+        json_data_normalized["uuid"] = form_id
+        export_to_excel(
+            file_name,
+            f"{xl_sheetname}",
+            json_data_normalized,
+            add_columns,
+            remove_columns,
+            move_columns_to_last,
+        )
 
     cursor.close()
     conn.close()
@@ -137,7 +160,7 @@ def export_egenbefordring_from_hub(connection_string: str, temp_path: str, numbe
     return file_name
 
 
-def upload_file_to_sharepoint(folder_name: str, file: str, credentials):
+def upload_file_to_sharepoint(folder_name: str, file: str):
     """
     Uploads a file to a specified folder within a SharePoint site.
 
@@ -151,12 +174,15 @@ def upload_file_to_sharepoint(folder_name: str, file: str, credentials):
     Returns:
         None
     """
-    sharepoint_details = {
-        "username": f"{credentials.username}",
-        "password": f"{credentials.password}",
+
+    sharepoint_kwargs = {
+        "tenant": os.getenv("TENANT"),
+        "client_id": os.getenv("CLIENT_ID"),
+        "thumbprint": os.getenv("APPREG_THUMBPRINT"),
+        "cert_path": os.getenv("GRAPH_CERT_PEM"),
         "site_url": "https://aarhuskommune.sharepoint.com",
         "site_name": f"{config.SITE_NAME}",
-        "document_library": "Delte dokumenter"
+        "document_library": "Delte dokumenter",
     }
-    sp = Sharepoint(**sharepoint_details)
+    sp = Sharepoint(**sharepoint_kwargs)
     sp.upload_file(folder_name, file)
